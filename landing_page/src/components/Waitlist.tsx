@@ -1,13 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-
-const STORAGE_KEY = "focusbill_waitlist";
-
-interface WaitlistEntry {
-    email: string;
-    timestamp: string;
-}
+import { supabase } from "@/lib/supabase";
 
 function isValidEmail(email: string): boolean {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -37,37 +31,20 @@ export default function Waitlist() {
 
         setLoading(true);
 
-        await new Promise((resolve) => setTimeout(resolve, 900));
-
         try {
-            const existing: WaitlistEntry[] = JSON.parse(
-                localStorage.getItem(STORAGE_KEY) || "[]"
-            );
+            const { error: supabaseError } = await supabase
+                .from("waitlist")
+                .insert({ email: trimmed.toLowerCase() });
 
-            if (existing.some((e) => e.email.toLowerCase() === trimmed.toLowerCase())) {
-                setError("This email is already on the waitlist!");
-                setLoading(false);
+            if (supabaseError) {
+                // Postgres unique violation code
+                if (supabaseError.code === "23505") {
+                    setError("This email is already on the waitlist!");
+                } else {
+                    setError("Something went wrong. Please try again.");
+                }
                 return;
             }
-
-            const newEntry: WaitlistEntry = {
-                email: trimmed,
-                timestamp: new Date().toISOString(),
-            };
-
-            localStorage.setItem(STORAGE_KEY, JSON.stringify([...existing, newEntry]));
-
-            /*
-             * ─────────────────────────────────────────────────────────────
-             * TO CONNECT TO A REAL BACKEND:
-             * const response = await fetch("/api/waitlist", {
-             *   method: "POST",
-             *   headers: { "Content-Type": "application/json" },
-             *   body: JSON.stringify({ email: trimmed }),
-             * });
-             * if (!response.ok) throw new Error("Submission failed.");
-             * ─────────────────────────────────────────────────────────────
-             */
 
             setSubmitted(true);
         } catch {
