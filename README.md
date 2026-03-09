@@ -1,5 +1,8 @@
 # FocusBill - Professional Time Tracking & Invoicing Extension
 
+<img width="128" height="128" alt="icon128" src="https://github.com/user-attachments/assets/87f168bb-d1ed-4fa9-8c30-b4de40b75d06" />
+
+
 ## 🎉 Latest Updates
 
 **Version 2.1 - Critical Bug Fixes:**
