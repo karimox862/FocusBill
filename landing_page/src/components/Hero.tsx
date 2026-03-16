@@ -121,11 +121,11 @@ export default function Hero() {
 
                     {/* Left: Copy */}
                     <div className="text-center lg:text-left">
-                        {/* Private beta badge */}
+                        {/* Available now badge */}
                         <div className="inline-flex items-center gap-2 bg-[#001A6E]/40 border border-[#F0FFFB]/15 px-4 py-1.5 rounded-full mb-8 animate-fade-in">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#7BA4FF] animate-pulse inline-block" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
                             <span className="text-[#7BA4FF] text-sm font-medium tracking-wide">
-                                Private Beta — Limited Spots Available
+                                Now Available on Chrome Web Store
                             </span>
                         </div>
 
@@ -148,16 +148,16 @@ export default function Hero() {
                         {/* CTA Group */}
                         <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start items-center animate-fade-up delay-300">
                             <a
-                                href="#waitlist"
+                                href="#install"
                                 className="btn-primary px-8 py-4 rounded-2xl text-base font-semibold flex items-center gap-2.5 glow-brand"
                             >
-                                <span>Join the Private Beta</span>
+                                <span>Install Free — Chrome Web Store</span>
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                                 </svg>
                             </a>
                             <p className="text-[#F0FFFB]/40 text-sm">
-                                Free early access · No credit card
+                                Free forever · No account required
                             </p>
                         </div>
 
@@ -165,7 +165,7 @@ export default function Hero() {
                         <div className="mt-12 flex flex-wrap justify-center lg:justify-start items-center gap-6 animate-fade-up delay-400">
                             <div className="text-center">
                                 <div className="text-2xl font-bold text-[#F0FFFB]">2,400+</div>
-                                <div className="text-[#F0FFFB]/40 text-xs mt-0.5">Freelancers Waiting</div>
+                                <div className="text-[#F0FFFB]/40 text-xs mt-0.5">Freelancers Using FocusBill</div>
                             </div>
                             <div className="w-px h-8 bg-[#F0FFFB]/10 hidden sm:block" />
                             <div className="text-center">

@@ -30,7 +30,7 @@ export const metadata: Metadata = {
         url: "https://focusbill.app",
         title: "FocusBill – Know Exactly What Your Focus Is Worth",
         description:
-            "Stop losing track of your income. FocusBill turns every hour of deep work into visible, real earnings. Join the private beta.",
+            "Stop losing track of your income. FocusBill turns every hour of deep work into visible, real earnings. Free Chrome extension for freelancers.",
         siteName: "FocusBill",
         images: [
             {
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
         card: "summary_large_image",
         title: "FocusBill – Know Exactly What Your Focus Is Worth",
         description:
-            "Stop losing track of your income. FocusBill turns every hour of deep work into visible, real earnings. Join the private beta.",
+            "Stop losing track of your income. FocusBill turns every hour of deep work into visible, real earnings. Free Chrome extension for freelancers.",
         images: ["/og-image.png"],
     },
     icons: {

@@ -118,7 +118,13 @@
             <p class="greeting-sub" id="greeting-text">Good morning</p>
             <h2 class="greeting-title">Your Freelance Dashboard</h2>
           </div>
-          <div class="today-badge" id="today-date-badge">Loading...</div>
+          <div class="greeting-right">
+            <div class="today-earnings-pill" id="today-earnings-pill" style="display:none;">
+              <span class="today-earnings-label">Today</span>
+              <span class="today-earnings-value" id="today-earnings">$0</span>
+            </div>
+            <div class="today-badge" id="today-date-badge">Loading...</div>
+          </div>
         </div>
 
         <!-- Stats Cards -->
@@ -196,7 +202,7 @@
       <!-- Sessions Page -->
       <div class="page" id="sessions-page">
         <div class="page-header">
-          <h2 class="page-title">Session History</h2>
+          <h2 class="page-title">Time Logs</h2>
           <div class="page-actions">
             <button class="btn btn-secondary" id="export-sessions-csv">
               <span class="btn-icon">
@@ -208,6 +214,18 @@
         </div>
 
         <div class="card">
+          <!-- Filter bar -->
+          <div class="sessions-filter-bar">
+            <span class="filter-label">Period</span>
+            <select class="field-select" id="session-filter">
+              <option value="today">Today</option>
+              <option value="week">This Week</option>
+              <option value="month" selected>This Month</option>
+              <option value="all">All Time</option>
+            </select>
+            <div class="sessions-summary" id="sessions-summary"></div>
+          </div>
+
           <div class="table-container">
             <table class="data-table">
               <thead>
@@ -218,7 +236,7 @@
                   <th>Duration</th>
                   <th>Rate</th>
                   <th>Amount</th>
-                  <th>Actions</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody id="sessions-table">
@@ -303,13 +321,13 @@
             All <span class="tab-count" id="count-all">0</span>
           </button>
           <button class="status-tab" data-status="active">
-            🚀 Active <span class="tab-count" id="count-active">0</span>
+            <span class="status-dot status-dot--active"></span>Active <span class="tab-count" id="count-active">0</span>
           </button>
           <button class="status-tab" data-status="planning">
-            📝 Planning <span class="tab-count" id="count-planning">0</span>
+            <span class="status-dot status-dot--planning"></span>Planning <span class="tab-count" id="count-planning">0</span>
           </button>
           <button class="status-tab" data-status="completed">
-            ✅ Completed <span class="tab-count" id="count-completed">0</span>
+            <span class="status-dot status-dot--completed"></span>Completed <span class="tab-count" id="count-completed">0</span>
           </button>
         </div>
 
@@ -968,6 +986,9 @@
       }
     })();
   </script>
+
+  <!-- Toast notifications -->
+  <div id="dashboard-toast-container"></div>
 </body>
 
 </html>

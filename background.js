@@ -1,6 +1,11 @@
 // FocusBill - Background Service Worker
 // ======================================
 
+// Debug logger — only outputs in development (set to false for production builds)
+const DEBUG = false;
+function log(...args) { if (DEBUG) console.log('[FocusBill]', ...args); }
+function logError(...args) { console.error('[FocusBill]', ...args); }
+
 let blockingEnabled = false;
 let blockedSites = [];
 
@@ -9,7 +14,7 @@ chrome.storage.local.get(['blockingState'], (result) => {
   if (result.blockingState) {
     blockingEnabled = result.blockingState.enabled || false;
     blockedSites = result.blockingState.sites || [];
-    console.log('Restored blocking state:', { blockingEnabled, blockedSites });
+    log('Restored blocking state:', { blockingEnabled, blockedSites });
   }
 });
 
@@ -21,28 +26,20 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
     const url = new URL(details.url);
     const hostname = url.hostname.replace(/^www\./, '');
 
-    // Check if site is blocked
+    // Check if site is blocked (exact domain or subdomain match only)
     const isBlocked = blockedSites.some(site => {
       const cleanSite = site.replace(/^www\./, '');
-      // Check exact match, subdomain match, or partial match
-      return hostname === cleanSite || 
-             hostname.endsWith('.' + cleanSite) || 
-             cleanSite.endsWith('.' + hostname) ||
-             hostname.includes(cleanSite) ||
-             cleanSite.includes(hostname);
+      return hostname === cleanSite || hostname.endsWith('.' + cleanSite);
     });
 
     if (isBlocked) {
-      console.log('🚫 BLOCKED navigation to:', hostname, 'from:', details.url);
-      // Redirect to blocking page
+      log('Blocked navigation to:', hostname);
       chrome.tabs.update(details.tabId, {
         url: chrome.runtime.getURL('blocked.html')
       });
-    } else {
-      console.log('✅ Allowed:', hostname);
     }
   } catch (e) {
-    console.error('❌ Error in onBeforeNavigate:', e);
+    logError('Error in onBeforeNavigate:', e);
   }
 });
 
@@ -56,22 +53,17 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
     const isBlocked = blockedSites.some(site => {
       const cleanSite = site.replace(/^www\./, '');
-      return hostname === cleanSite || 
-             hostname.endsWith('.' + cleanSite) || 
-             cleanSite.endsWith('.' + hostname) ||
-             hostname.includes(cleanSite) ||
-             cleanSite.includes(hostname);
+      return hostname === cleanSite || hostname.endsWith('.' + cleanSite);
     });
 
     if (isBlocked) {
-      console.log('🚫 BLOCKED tab update to:', hostname);
+      log('Blocked tab update to:', hostname);
       chrome.tabs.update(tabId, {
         url: chrome.runtime.getURL('blocked.html')
       });
     }
   } catch (e) {
-    // Invalid URL, ignore
-    console.error('❌ Error in onUpdated:', e);
+    logError('Error in onUpdated:', e);
   }
 });
 
@@ -112,7 +104,7 @@ chrome.storage.local.get(['timerState'], (result) => {
       }
     }
 
-    console.log('Timer state restored:', timerState);
+    log('Timer state restored:', timerState);
   }
 });
 
@@ -157,7 +149,7 @@ function clearExtensionIcon() {
 
 // Handle timer completion
 function handleTimerComplete() {
-  console.log('⏰ Timer completed!');
+  log('Timer completed');
 
   // Calculate elapsed time and save log
   if (timerState.startTime) {
@@ -165,9 +157,10 @@ function handleTimerComplete() {
     const elapsedMinutes = Math.floor(elapsedSeconds / 60);
 
     if (elapsedMinutes > 0 && timerState.client) {
-      // Save time log
-      chrome.storage.local.get(['timeLogs'], (result) => {
-        const logs = result.timeLogs || [];
+      // Save time log into appData.timeLogs (same key dashboard.js reads)
+      chrome.storage.local.get(['appData'], (result) => {
+        const data = result.appData || {};
+        const logs = data.timeLogs || [];
         logs.push({
           id: Date.now(),
           date: new Date().toISOString(),
@@ -177,7 +170,7 @@ function handleTimerComplete() {
           duration: elapsedMinutes,
           sessionType: timerState.sessionType
         });
-        chrome.storage.local.set({ timeLogs: logs });
+        chrome.storage.local.set({ appData: { ...data, timeLogs: logs } });
       });
     }
   }
@@ -247,7 +240,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       blockingState: { enabled: true, sites: blockedSites }
     });
 
-    console.log('🚫 Blocking enabled for sites:', blockedSites);
+    log('Blocking enabled for sites:', blockedSites);
     sendResponse({ success: true });
   }
   else if (request.action === 'stopBlocking') {
@@ -258,7 +251,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       blockingState: { enabled: false, sites: [] }
     });
 
-    console.log('✅ Blocking disabled');
+    log('Blocking disabled');
     sendResponse({ success: true });
   }
   else if (request.action === 'ping') {
@@ -267,22 +260,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   // Timer control messages
   else if (request.action === 'startTimer') {
+    // Validate inputs — fall back to 25 minutes if missing/invalid
+    const raw = Number(request.sessionDuration);
+    const duration = (raw > 0 && raw <= 7200) ? raw : (25 * 60);
+
     timerState.isRunning = true;
     timerState.isPaused = false;
     timerState.startTime = Date.now();
-    timerState.currentTime = request.sessionDuration || (25 * 60);
-    timerState.sessionDuration = request.sessionDuration || (25 * 60);
+    timerState.currentTime = duration;
+    timerState.sessionDuration = duration;
     timerState.endTime = timerState.startTime + (timerState.currentTime * 1000);
-    timerState.sessionType = request.sessionType || 'work';
-    timerState.client = request.client || '';
-    timerState.project = request.project || '';
-    timerState.task = request.task || '';
+    timerState.sessionType = (request.sessionType === 'break') ? 'break' : 'work';
+    timerState.client = String(request.client || '').slice(0, 200);
+    timerState.project = String(request.project || '').slice(0, 200);
+    timerState.task = String(request.task || '').slice(0, 500);
 
-    // Update icon immediately
     updateExtensionIcon();
 
     saveTimerState();
-    console.log('▶️ Timer started:', timerState);
+    log('Timer started:', timerState);
     sendResponse({ success: true });
   }
   else if (request.action === 'pauseTimer') {
@@ -295,7 +291,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     saveTimerState();
-    console.log(timerState.isPaused ? '⏸️ Timer paused' : '▶️ Timer resumed');
+    log(timerState.isPaused ? 'Timer paused' : 'Timer resumed');
     sendResponse({ success: true, isPaused: timerState.isPaused });
   }
   else if (request.action === 'stopTimer') {
@@ -305,8 +301,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     // Save time log if there's time and client selected
     if (elapsedMinutes > 0 && timerState.client) {
-      chrome.storage.local.get(['timeLogs'], (result) => {
-        const logs = result.timeLogs || [];
+      chrome.storage.local.get(['appData'], (result) => {
+        const data = result.appData || {};
+        const logs = data.timeLogs || [];
         logs.push({
           id: Date.now(),
           date: new Date().toISOString(),
@@ -316,7 +313,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           duration: elapsedMinutes,
           sessionType: timerState.sessionType
         });
-        chrome.storage.local.set({ timeLogs: logs });
+        chrome.storage.local.set({ appData: { ...data, timeLogs: logs } });
       });
     }
 
@@ -342,7 +339,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     clearExtensionIcon();
 
     saveTimerState();
-    console.log('⏹️ Timer stopped');
+    log('Timer stopped');
     sendResponse({ success: true, elapsedMinutes });
   }
   else if (request.action === 'timerComplete') {
@@ -375,16 +372,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     timerState.endTime = null;
 
     chrome.storage.local.remove(['timerState']);
-    console.log('🔄 Timer reset');
+    log('Timer reset');
     sendResponse({ success: true });
   }
 
   return true;
 });
 
-// Keep service worker alive
-setInterval(() => {
-  console.log('Service worker heartbeat');
-}, 20000);
-
-console.log('FocusBill background service worker loaded');
+log('FocusBill background service worker loaded');

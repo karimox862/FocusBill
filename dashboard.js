@@ -72,9 +72,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Load data
 function loadData() {
-  chrome.storage.local.get(['appData'], (result) => {
+  chrome.storage.local.get(['appData', 'timeLogs'], (result) => {
     if (result.appData) {
       appData = { ...appData, ...result.appData };
+    }
+    // Migrate legacy timeLogs saved by background.js under separate key
+    if (result.timeLogs && result.timeLogs.length > 0) {
+      const existingIds = new Set(appData.timeLogs.map(l => l.id));
+      const newLogs = result.timeLogs.filter(l => !existingIds.has(l.id));
+      if (newLogs.length > 0) {
+        appData.timeLogs = [...appData.timeLogs, ...newLogs];
+        chrome.storage.local.remove('timeLogs');
+        saveData();
+      }
     }
     updateAllPages();
   });
@@ -85,6 +95,21 @@ function saveData() {
   chrome.storage.local.set({ appData }, () => {
     console.log('✅ Dashboard data saved');
   });
+}
+
+// Toast notifications (replaces alert())
+function dashboardToast(message, type = 'success') {
+  const container = document.getElementById('dashboard-toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = `d-toast d-toast-${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('d-toast-in'));
+  setTimeout(() => {
+    toast.classList.remove('d-toast-in');
+    toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+  }, 3200);
 }
 
 // Setup event listeners
@@ -240,6 +265,26 @@ function updateOverviewPage() {
   const uniqueDays = new Set(thisMonthLogs.map(log => new Date(log.date).toDateString()));
   document.getElementById('active-days').textContent = uniqueDays.size;
 
+  // Today's earnings pill
+  const todayLogs = appData.timeLogs.filter(log =>
+    new Date(log.date).toDateString() === now.toDateString()
+  );
+  let todayRevenue = 0;
+  todayLogs.forEach(log => {
+    const client = appData.clients.find(c => String(c.id) === String(log.client));
+    if (client) todayRevenue += (log.duration / 60) * client.rate;
+  });
+  const earningsPill = document.getElementById('today-earnings-pill');
+  const earningsVal = document.getElementById('today-earnings');
+  if (earningsPill && earningsVal) {
+    if (todayLogs.length > 0) {
+      earningsVal.textContent = `$${todayRevenue.toFixed(0)}`;
+      earningsPill.style.display = 'flex';
+    } else {
+      earningsPill.style.display = 'none';
+    }
+  }
+
   // Recent sessions table
   updateRecentSessionsTable();
 }
@@ -298,6 +343,25 @@ function updateSessionsPage() {
     });
   }
 
+  // Session summary stats
+  const summaryEl = document.getElementById('sessions-summary');
+  if (summaryEl) {
+    const summaryMinutes = filteredLogs.reduce((sum, l) => sum + l.duration, 0);
+    let summaryRevenue = 0;
+    filteredLogs.forEach(l => {
+      const c = appData.clients.find(c => String(c.id) === String(l.client));
+      if (c) summaryRevenue += (l.duration / 60) * c.rate;
+    });
+    const uniqueClients = new Set(filteredLogs.map(l => l.client)).size;
+    summaryEl.innerHTML = `
+      <div class="sessions-summary-stat"><span class="sessions-summary-label">Sessions</span><span class="sessions-summary-value">${filteredLogs.length}</span></div>
+      <div class="sessions-summary-stat"><span class="sessions-summary-label">Hours</span><span class="sessions-summary-value">${(summaryMinutes / 60).toFixed(1)}h</span></div>
+      <div class="sessions-summary-stat"><span class="sessions-summary-label">Revenue</span><span class="sessions-summary-value">$${summaryRevenue.toFixed(0)}</span></div>
+      <div class="sessions-summary-stat"><span class="sessions-summary-label">Clients</span><span class="sessions-summary-value">${uniqueClients}</span></div>
+    `;
+    summaryEl.style.display = filteredLogs.length > 0 ? 'flex' : 'none';
+  }
+
   if (filteredLogs.length === 0) {
     tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No sessions found</td></tr>';
     return;
@@ -320,9 +384,9 @@ function updateSessionsPage() {
       <td>$${rate}/hr</td>
       <td>$${amount}</td>
       <td>
-  <button class="btn-icon delete-session-btn" type="button"
-          data-action="delete-session" data-id="${log.id}"><img src="icons/trash_black.png" alt="Trash Icon" style="width: 16px; height:auto" /></button>
-</td>
+        <button class="entity-action-btn" type="button" title="Delete session"
+          data-action="delete-session" data-id="${log.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+      </td>
 
     `;
     tbody.appendChild(row);
@@ -336,11 +400,13 @@ function updateClientsPage() {
   if (appData.clients.length === 0) {
     grid.innerHTML = `
   <div class="empty-state-card">
-    <div class="empty-icon">📂</div>
+    <div class="empty-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="38" height="38"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.582-7 8-7s8 3 8 7"/></svg>
+    </div>
     <h3>No clients yet</h3>
     <p>Add your first client to start tracking billable time</p>
     <button class="btn btn-primary" id="add-client-empty" type="button" data-action="add-client">
-      <span class="btn-icon">➕</span>
+      <span class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15" height="15"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg></span>
       Add Client
     </button>
   </div>
@@ -363,10 +429,10 @@ function updateClientsPage() {
       <div class="entity-header">
         <div class="entity-icon">${getClientInitials(client.name)}</div>
         <div class="entity-actions">
-          <button class="entity-action-btn" type="button"
-        data-action="edit-client" data-id="${client.id}"><img src="icons/pencil_black.png" alt="Edit Icon" style="width: 16px; height:auto" /></button>
-<button class="entity-action-btn" type="button"
-        data-action="delete-client" data-id="${client.id}"><img src="icons/trash_black.png" alt="Trash Icon" style="width: 16px; height:auto" /></button>
+          <button class="entity-action-btn" type="button" title="Edit client"
+        data-action="edit-client" data-id="${client.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="entity-action-btn" type="button" title="Delete client"
+        data-action="delete-client" data-id="${client.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
 
         </div>
       </div>
@@ -450,18 +516,25 @@ function saveClient() {
   const rate = parseFloat(document.getElementById('client-rate-input')?.value) || appData.settings.defaultRate;
 
   if (!name) {
-    alert('Please enter a client name');
+    dashboardToast('Please enter a client name', 'error');
     return;
   }
 
-  const client = {
-    id: Date.now(),
-    name: name,
-    email: email || '',
-    rate: rate
-  };
+  const saveBtn = document.getElementById('save-client-btn');
+  const editId = saveBtn?.dataset.editId ? parseInt(saveBtn.dataset.editId) : null;
 
-  appData.clients.push(client);
+  if (editId) {
+    const client = appData.clients.find(c => c.id === editId);
+    if (client) { client.name = name; client.email = email || ''; client.rate = rate; }
+    delete saveBtn.dataset.editId;
+    saveBtn.textContent = 'Save Client';
+    const modal = document.getElementById('client-modal');
+    if (modal) modal.querySelector('.modal-title').textContent = 'Add Client';
+  } else {
+    const client = { id: Date.now(), name, email: email || '', rate };
+    appData.clients.push(client);
+  }
+
   saveData();
   closeAllModals();
 
@@ -471,11 +544,10 @@ function saveClient() {
   document.getElementById('client-rate-input').value = '';
 
   updateClientsPage();
-  alert(`Client "${name}" added successfully!`);
+  dashboardToast(editId ? `Client updated!` : `Client "${name}" added!`, 'success');
 }
 
 window.deleteClient = function (clientId) {
-  console.log('<img src="icons/trash_black.png" alt="Trash Icon" style="width: 16px; height:auto" /> Delete client called:', clientId);
   if (!confirm('Delete this client? Time logs will not be deleted.')) return;
 
   appData.clients = appData.clients.filter(c => c.id !== clientId);
@@ -485,29 +557,27 @@ window.deleteClient = function (clientId) {
 };
 
 window.editClient = function (clientId) {
-  console.log('✏️ Edit client called:', clientId);
   const client = appData.clients.find(c => c.id === clientId);
   if (!client) return;
 
-  const newName = prompt('Enter new client name:', client.name);
-  if (newName && newName.trim()) {
-    client.name = newName.trim();
-  }
+  const modal = document.getElementById('client-modal');
+  if (!modal) return;
 
-  const newEmail = prompt('Enter new client email:', client.email || '');
-  if (newEmail !== null) {
-    client.email = newEmail.trim();
-  }
+  // Pre-fill form with existing client data
+  document.getElementById('client-name-input').value = client.name;
+  document.getElementById('client-email-input').value = client.email || '';
+  document.getElementById('client-rate-input').value = client.rate || '';
 
-  const newRate = prompt('Enter new hourly rate:', client.rate);
-  if (newRate && !isNaN(parseFloat(newRate))) {
-    client.rate = parseFloat(newRate);
+  // Mark the save button so saveClient knows it's an edit
+  const saveBtn = document.getElementById('save-client-btn');
+  if (saveBtn) {
+    saveBtn.dataset.editId = clientId;
+    saveBtn.textContent = 'Update Client';
   }
+  modal.querySelector('.modal-title').textContent = 'Edit Client';
 
-  saveData();
-  updateClientsPage();
-  alert('Client updated!');
-  console.log('✅ Client updated');
+  modal.classList.remove('hidden');
+  document.getElementById('client-name-input')?.focus();
 };
 
 console.log('✅ window.deleteClient and window.editClient defined');
@@ -550,7 +620,7 @@ function updateProjectsPage() {
         <p>${appData.projects.length === 0 ? 'Create fixed-price projects with milestones' : 'Try adjusting your search or filters'}</p>
         ${appData.projects.length === 0 ? `
           <button class="btn btn-primary" id="add-project-empty" type="button" data-action="add-project">
-            <span class="btn-icon"><img src="icons/add_client.png" alt="Add Icon" style="width: 16px; height:auto" /></span>
+            <span class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15" height="15"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg></span>
             Create Project
           </button>
         ` : ''}
@@ -698,12 +768,12 @@ function createProjectCard(project, index) {
   const health = getProjectHealth(project);
   const status = project.status || 'active';
 
-  const statusEmojis = {
-    'planning': '📝',
-    'active': '🚀',
-    'on-hold': '⏸️',
-    'completed': '✅',
-    'cancelled': '❌'
+  const statusLabels = {
+    'planning': 'Planning',
+    'active': 'Active',
+    'on-hold': 'On Hold',
+    'completed': 'Completed',
+    'cancelled': 'Cancelled'
   };
 
   const card = document.createElement('div');
@@ -712,13 +782,15 @@ function createProjectCard(project, index) {
 
   card.innerHTML = `
     <div class="entity-header">
-      <div class="entity-icon"><img src="icons/folder_black.png" alt="Folder Icon" style="width: 16px; height:auto" /></div>
+      <div class="entity-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+      </div>
       <div class="entity-actions">
         <button class="entity-action-btn" type="button" onclick="viewProjectDetails(${project.id})" title="View Details">
-          👁️
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
         <button class="entity-action-btn" type="button" data-action="delete-project" data-id="${project.id}" title="Delete">
-          <img src="icons/trash_black.png" alt="Delete Icon" style="width: 16px; height:auto" />
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
         </button>
       </div>
     </div>
@@ -728,11 +800,11 @@ function createProjectCard(project, index) {
       ${clientName} • ${project.type === 'fixed' ? 'Fixed Price' : 'Hourly'}
     </div>
     
-    <div style="margin-top: var(--spacing-3); display: flex; gap: var(--spacing-2); align-items: center;">
+    <div style="margin-top:12px; display: flex; gap: 6px; align-items: center;">
       <span class="project-status-badge status-${status}">
-        ${statusEmojis[status]} ${status.replace('-', ' ')}
+        ${statusLabels[status] || status}
       </span>
-      ${health !== 'healthy' ? `<span class="project-health ${health}">⚠️</span>` : ''}
+      ${health !== 'healthy' ? `<span class="project-health ${health}">${health === 'critical' ? 'Critical' : 'Attention'}</span>` : ''}
     </div>
     
     ${project.milestones && project.milestones.length > 0 ? `
@@ -860,12 +932,12 @@ function saveProject() {
   const deadline = document.getElementById('project-deadline')?.value;
 
   if (!name) {
-    alert('Please enter a project name');
+    dashboardToast('Please enter a project name', 'error');
     return;
   }
 
   if (!clientId) {
-    alert('Please select a client');
+    dashboardToast('Please select a client', 'error');
     return;
   }
 
@@ -919,7 +991,7 @@ function saveProject() {
   }
 
   updateProjectsPage();
-  alert(`Project "${name}" created successfully!`);
+  dashboardToast(`Project "${name}" created!`, 'success');
 }
 
 window.deleteProject = function (projectId) {
@@ -991,9 +1063,9 @@ function renderInvoicesTable() {
       <td><strong>$${invoice.total.toFixed(2)}</strong></td>
       <td><span class="invoice-status status-${statusClass}">${statusText}</span></td>
       <td>
-        <button class="btn-icon" type="button" data-action="view-invoice" data-id="${invoice.id}" title="View">👁️</button>
-        <button class="btn-icon" type="button" data-action="mark-paid" data-id="${invoice.id}" title="Mark as Paid">✅</button>
-        <button class="btn-icon" type="button" data-action="delete-invoice" data-id="${invoice.id}" title="Delete"><img src="icons/trash_black.png" alt="Trash Icon" style="width: 16px; height:auto" /></button>
+        <button class="entity-action-btn" type="button" data-action="view-invoice" data-id="${invoice.id}" title="View invoice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <button class="entity-action-btn" type="button" data-action="mark-paid" data-id="${invoice.id}" title="Mark as paid" style="color:#059669"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><polyline points="20 6 9 17 4 12"/></svg></button>
+        <button class="entity-action-btn" type="button" data-action="delete-invoice" data-id="${invoice.id}" title="Delete invoice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
       </td>
     `;
     tbody.appendChild(row);
@@ -1053,7 +1125,7 @@ function createInvoice() {
   const status = document.getElementById('invoice-status')?.value;
 
   if (!clientId) {
-    alert('Please select a client');
+    dashboardToast('Please select a client', 'error');
     return;
   }
 
@@ -1082,7 +1154,7 @@ function createInvoice() {
     }
 
     if (logs.length === 0) {
-      alert('No time logs found for this period');
+      dashboardToast('No time logs found for this period', 'warning');
       return;
     }
 
@@ -1104,7 +1176,7 @@ function createInvoice() {
     const projectId = parseInt(document.getElementById('invoice-project')?.value);
 
     if (amount <= 0) {
-      alert('Please enter an amount');
+      dashboardToast('Please enter an amount', 'error');
       return;
     }
 
@@ -1146,7 +1218,7 @@ function createInvoice() {
   closeAllModals();
 
   updateInvoicesPage();
-  alert(`Invoice ${invoice.number} created successfully!`);
+  dashboardToast(`Invoice ${invoice.number} created!`, 'success');
 }
 
 window.viewInvoice = function (invoiceId) {
@@ -1180,7 +1252,7 @@ window.markInvoicePaid = function (invoiceId) {
   if (!invoice) return;
 
   if (invoice.status === 'paid') {
-    alert('Invoice is already marked as paid');
+    dashboardToast('Invoice is already marked as paid', 'info');
     return;
   }
 
@@ -1189,7 +1261,7 @@ window.markInvoicePaid = function (invoiceId) {
     invoice.paidAt = new Date().toISOString();
     saveData();
     renderInvoicesTable();
-    alert('Invoice marked as paid!');
+    dashboardToast('Invoice marked as paid!', 'success');
   }
 };
 
@@ -1228,7 +1300,9 @@ function updateNotesPage() {
   if (!appData.notes || appData.notes.length === 0) {
     grid.innerHTML = `
       <div class="empty-state-card">
-        <div class="empty-icon">📝</div>
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="38" height="38"><path d="M11 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </div>
         <h3>No notes yet</h3>
         <p>Add quick notes during your work sessions</p>
       </div>
@@ -1243,8 +1317,8 @@ function updateNotesPage() {
     card.innerHTML = `
       <div class="note-header">
         <div class="note-date">${new Date(note.date).toLocaleDateString()}</div>
-        <button class="entity-action-btn" type="button"
-        data-action="delete-note" data-id="${note.id}"><img src="icons/trash_black.png" alt="Trash Icon" style="width: 16px; height:auto" /></button>
+        <button class="entity-action-btn" type="button" title="Delete note"
+        data-action="delete-note" data-id="${note.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
 
       </div>
       <div class="note-content">${note.content}</div>
@@ -1261,7 +1335,7 @@ function saveNote() {
   const content = document.getElementById('note-content-input')?.value.trim();
 
   if (!content) {
-    alert('Please enter note content');
+    dashboardToast('Please enter note content', 'error');
     return;
   }
 
@@ -1279,11 +1353,10 @@ function saveNote() {
   document.getElementById('note-content-input').value = '';
 
   updateNotesPage();
-  alert('Note added successfully!');
+  dashboardToast('Note added!', 'success');
 }
 
 window.deleteNote = function (noteId) {
-  console.log('<img src="icons/trash_black.png" alt="Trash Icon" style="width: 16px; height:auto" /> Delete note called:', noteId);
   if (!confirm('Delete this note?')) return;
   appData.notes = appData.notes.filter(n => n.id !== noteId);
   saveData();
@@ -1441,8 +1514,8 @@ function renderExpensesTable() {
         <td><strong>$${expense.amount.toFixed(2)}</strong></td>
         <td>${expense.taxDeductible ? '✅ Yes' : '❌ No'}</td>
         <td>
-          <button class="btn-icon" type="button" data-action="delete-expense" data-id="${expense.id}" title="Delete">
-            <img src="icons/trash_black.png" alt="Delete" style="width: 16px; height:auto" />
+          <button class="entity-action-btn" type="button" data-action="delete-expense" data-id="${expense.id}" title="Delete expense">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
           </button>
         </td>
       `;
@@ -1503,19 +1576,19 @@ function saveExpense() {
 
   // Validation
   if (!description) {
-    alert('Please enter a description');
+    dashboardToast('Please enter a description', 'error');
     return;
   }
   if (!amount || amount <= 0) {
-    alert('Please enter a valid amount');
+    dashboardToast('Please enter a valid amount', 'error');
     return;
   }
   if (!category) {
-    alert('Please select a category');
+    dashboardToast('Please select a category', 'error');
     return;
   }
   if (!date) {
-    alert('Please select a date');
+    dashboardToast('Please select a date', 'error');
     return;
   }
 
@@ -1535,7 +1608,7 @@ function saveExpense() {
     try {
       newExpense = window.ExpenseTracker.addExpense(expenseData);
     } catch (error) {
-      alert('Error adding expense: ' + error.message);
+      dashboardToast('Error adding expense: ' + error.message, 'error');
       return;
     }
   } else {
@@ -1551,7 +1624,7 @@ function saveExpense() {
   closeAllModals();
   updateExpensesPage();
 
-  alert(`Expense "${description}" added successfully!`);
+  dashboardToast(`Expense added!`, 'success');
 }
 
 window.deleteExpense = function (expenseId) {
@@ -1564,7 +1637,7 @@ window.deleteExpense = function (expenseId) {
 
 function exportExpensesCSV() {
   if (!window.ExpenseTracker) {
-    alert('ExpenseTracker module not loaded');
+    dashboardToast('ExpenseTracker module not loaded', 'error');
     return;
   }
 
@@ -1572,7 +1645,7 @@ function exportExpensesCSV() {
   const filteredExpenses = window.ExpenseTracker.getExpensesByPeriod(appData.expenses, period);
 
   if (filteredExpenses.length === 0) {
-    alert('No expenses to export');
+    dashboardToast('No expenses to export', 'info');
     return;
   }
 
@@ -1620,7 +1693,7 @@ function saveSettings() {
   appData.settings.paypalLink = document.getElementById('paypal-link')?.value.trim() || '';
 
   saveData();
-  alert('Settings saved!');
+  dashboardToast('Settings saved!', 'success');
 }
 
 function updateBlockedSitesList() {
@@ -1719,7 +1792,7 @@ function exportSessionsCSV() {
 }
 
 function exportSessionsPDF() {
-  alert('PDF export: Use browser Print > Save as PDF on the Sessions page');
+  dashboardToast('Use browser Print → Save as PDF on this page', 'info');
 }
 
 function clearAllData() {
@@ -1746,11 +1819,10 @@ function clearAllData() {
 
   saveData();
   updateAllPages();
-  alert('All data cleared');
+  dashboardToast('All data cleared', 'info');
 }
 
 window.deleteSession = function (sessionId) {
-  console.log('<img src="icons/trash_black.png" alt="Trash Icon" style="width: 16px; height:auto" /> Delete session called:', sessionId);
   if (!confirm('Delete this session?')) return;
   appData.timeLogs = appData.timeLogs.filter(log => log.id !== sessionId);
   saveData();

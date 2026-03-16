@@ -3,9 +3,9 @@
 import Image from "next/image";
 
 const links = [
-    { label: "How It Works", href: "#how-it-works" },
     { label: "Features", href: "#solution" },
-    { label: "Join Beta", href: "#waitlist" },
+    { label: "How It Works", href: "#how-it-works" },
+    { label: "Get FocusBill", href: "#install" },
 ];
 
 export default function Footer() {
@@ -53,7 +53,7 @@ export default function Footer() {
                 {/* Fine print */}
                 <div className="mt-8 pt-6 border-t border-[#F0FFFB]/5 flex flex-col sm:flex-row items-center justify-between gap-3">
                     <p className="text-[#F0FFFB]/18 text-xs">
-                        FocusBill is currently in private beta. Features subject to change.
+                        FocusBill is free for all freelancers. Built with care.
                     </p>
                     <div className="flex items-center gap-4">
                         <a href="#" className="text-[#F0FFFB]/20 hover:text-[#F0FFFB]/40 text-xs transition-colors">

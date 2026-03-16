@@ -6,7 +6,11 @@
       "Bash(npx next build)",
       "Bash(npm run build)",
       "Bash(node --eval \":*)",
-      "Bash(ls /c/Users/pckar/Desktop/focusbill-main/*.html /c/Users/pckar/Desktop/focusbill-main/*.js)"
+      "Bash(ls /c/Users/pckar/Desktop/focusbill-main/*.html /c/Users/pckar/Desktop/focusbill-main/*.js)",
+      "Bash(ls -la *.js *.html *.css)",
+      "Bash(wc -l *.js *.html *.css)",
+      "Bash(npm install)",
+      "Bash(NODE_OPTIONS=--openssl-legacy-provider npm install)"
     ],
     "deny": [],
     "ask": []

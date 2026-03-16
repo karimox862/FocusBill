@@ -26,7 +26,7 @@ const testimonials = [
 
 export default function Testimonials() {
     return (
-        <section className="py-24 px-6 relative overflow-hidden">
+        <section id="testimonials" className="py-24 px-6 relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#F0FFFB]/10 to-transparent" />
 
             <div className="max-w-5xl mx-auto">
@@ -35,7 +35,7 @@ export default function Testimonials() {
                     <div className="flex items-center gap-3 justify-center mb-4">
                         <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-transparent to-[#2B59E0]/50" />
                         <span className="text-[#7BA4FF] text-sm font-semibold uppercase tracking-widest">
-                            Beta Feedback
+                            What Freelancers Say
                         </span>
                         <div className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-transparent to-[#2B59E0]/50" />
                     </div>

@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 
 const navLinks = [
-    { label: "Problem", href: "#problem" },
     { label: "Features", href: "#solution" },
     { label: "How It Works", href: "#how-it-works" },
+    { label: "Testimonials", href: "#testimonials" },
 ];
 
 export default function Navbar() {
@@ -61,10 +61,10 @@ export default function Navbar() {
                 {/* CTA + mobile toggle */}
                 <div className="flex items-center gap-3">
                     <a
-                        href="#waitlist"
+                        href="#install"
                         className="btn-primary px-5 py-2.5 rounded-xl text-sm font-semibold hidden sm:flex items-center gap-2"
                     >
-                        <span>Join Beta</span>
+                        <span>Get FocusBill Free</span>
                         <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
                             <path
                                 fillRule="evenodd"
@@ -109,11 +109,11 @@ export default function Navbar() {
                         </a>
                     ))}
                     <a
-                        href="#waitlist"
+                        href="#install"
                         onClick={() => setMenuOpen(false)}
                         className="btn-primary mt-2 px-5 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
                     >
-                        Join Private Beta
+                        Get FocusBill Free
                     </a>
                 </div>
             )}

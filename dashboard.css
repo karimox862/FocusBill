@@ -1115,6 +1115,159 @@ body.mode-student   .mode-specific.student-only    { display: flex; }
 /* nav icon size */
 .nav-icon svg { width: 20px; height: 20px; flex-shrink: 0; }
 
+/* ── Action Button Color Variants ───────────────────────────────── */
+/* Edit actions → blue */
+.entity-action-btn[data-action*="edit"],
+.entity-action-btn[onclick*="viewProject"] {
+  color: #4F6CCD;
+}
+.entity-action-btn[data-action*="edit"]:hover,
+.entity-action-btn[data-action="view-invoice"]:hover,
+.entity-action-btn[onclick*="viewProject"]:hover {
+  background: #EEF2FF;
+  border-color: #C7D2FE;
+  color: #3730A3;
+}
+/* Mark paid → green */
+.entity-action-btn[data-action="mark-paid"] { color: #059669; }
+.entity-action-btn[data-action="mark-paid"]:hover {
+  background: #D1FAE5;
+  border-color: #6EE7B7;
+  color: #065F46;
+}
+/* Delete actions → red (already set globally, reinforce) */
+.entity-action-btn[data-action*="delete"]:hover {
+  background: #FEE2E2;
+  border-color: #FCA5A5;
+  color: #DC2626;
+}
+
+/* ── Entity Icon SVG fix ─────────────────────────────────────────── */
+.entity-icon svg { display: block; flex-shrink: 0; width: 26px; height: 26px; }
+
+/* ── Sessions Filter Bar ─────────────────────────────────────────── */
+.sessions-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.filter-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #64748B;
+  white-space: nowrap;
+}
+.sessions-filter-bar .field-select {
+  width: auto;
+  min-width: 150px;
+  height: 38px;
+  padding: 6px 32px 6px 12px;
+  font-size: 0.875rem;
+}
+.sessions-summary {
+  margin-left: auto;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.sessions-summary-stat {
+  font-size: 0.8125rem;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.sessions-summary-stat strong { color: #0F172A; font-weight: 700; }
+.sessions-summary-stat:not(:last-child)::after {
+  content: '·';
+  margin-left: 16px;
+  color: #CBD5E1;
+}
+
+/* ── Status Dot Indicators ───────────────────────────────────────── */
+.status-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+.status-dot--active    { background: #3B82F6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+.status-dot--planning  { background: #F59E0B; box-shadow: 0 0 0 2px rgba(245,158,11,0.2); }
+.status-dot--completed { background: #10B981; box-shadow: 0 0 0 2px rgba(16,185,129,0.2); }
+.status-dot--on-hold   { background: #94A3B8; }
+.status-dot--cancelled { background: #EF4444; }
+
+/* ── Today Earnings Pill ─────────────────────────────────────────── */
+.greeting-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+.today-earnings-pill {
+  background: rgba(23,248,173,0.15);
+  border: 1px solid rgba(23,248,173,0.3);
+  border-radius: 10px;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.today-earnings-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.today-earnings-value {
+  font-size: 1.0625rem;
+  font-weight: 800;
+  color: #17F8AD;
+  letter-spacing: -0.02em;
+}
+
+/* Dark mode additions */
+body.dark .sessions-summary-stat { color: #475569; }
+body.dark .sessions-summary-stat strong { color: #CBD5E1; }
+
+/* ── Dashboard Toasts ───────────────────────────────────────────── */
+#dashboard-toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  pointer-events: none;
+}
+.d-toast {
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: #1E2D4A;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  max-width: 320px;
+  pointer-events: auto;
+}
+.d-toast.d-toast-in { opacity: 1; transform: translateX(0); }
+.d-toast-success { background: linear-gradient(135deg, #059669, #10B981); }
+.d-toast-error   { background: linear-gradient(135deg, #B91C1C, #DC2626); }
+.d-toast-info    { background: linear-gradient(135deg, #001A6E, #2B59E0); }
+.d-toast-warning { background: linear-gradient(135deg, #92400E, #D97706); }
+
 /* ── Animations ─────────────────────────────────────────────────── */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
@@ -1232,9 +1385,11 @@ body.dark .today-badge { border-color: rgba(255,255,255,0.1); color: rgba(255,25
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .page-header { flex-direction: column; align-items: flex-start; gap: 14px; }
   .greeting-bar { flex-direction: column; gap: 14px; align-items: flex-start; }
+  .greeting-right { flex-wrap: wrap; }
   .entities-grid { grid-template-columns: 1fr; }
   .project-meta-grid { grid-template-columns: repeat(2, 1fr); }
   .filter-controls .field-select { flex: 1; }
+  .sessions-summary { margin-left: 0; }
 }
 
 @media (max-width: 480px) {

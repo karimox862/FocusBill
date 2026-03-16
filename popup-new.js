@@ -72,7 +72,10 @@ function showToast(message, type = 'info', duration = 3000) {
 function loadData() {
   chrome.storage.local.get(['appData'], (result) => {
     if (result.appData) {
+      const defaults = { ...appData.settings };
       appData = { ...appData, ...result.appData };
+      // Deep merge settings so workDuration/shortBreak/longBreak are never lost
+      appData.settings = { ...defaults, ...appData.settings };
     }
     syncTimerStateFromBackground(() => updateUI());
   });
