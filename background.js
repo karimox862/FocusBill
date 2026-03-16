@@ -1,6 +1,8 @@
 // FocusBill - Background Service Worker
 // ======================================
 
+importScripts('supabase.js', 'sync.js');
+
 // Debug logger — only outputs in development (set to false for production builds)
 const DEBUG = false;
 function log(...args) { if (DEBUG) console.log('[FocusBill]', ...args); }
@@ -15,6 +17,14 @@ chrome.storage.local.get(['blockingState'], (result) => {
     blockingEnabled = result.blockingState.enabled || false;
     blockedSites = result.blockingState.sites || [];
     log('Restored blocking state:', { blockingEnabled, blockedSites });
+  }
+});
+
+// Auto-sync alarm — create on startup if enabled
+chrome.storage.local.get(['autoSyncEnabled'], (result) => {
+  if (result.autoSyncEnabled !== false) {
+    chrome.alarms.create('autoSync', { periodInMinutes: 10 });
+    log('Auto-sync alarm created (every 10 min)');
   }
 });
 
@@ -168,7 +178,8 @@ function handleTimerComplete() {
           project: timerState.project,
           task: timerState.task,
           duration: elapsedMinutes,
-          sessionType: timerState.sessionType
+          sessionType: timerState.sessionType,
+          updated_at: new Date().toISOString()
         });
         chrome.storage.local.set({ appData: { ...data, timeLogs: logs } });
       });
@@ -208,6 +219,19 @@ function handleTimerComplete() {
 chrome.alarms.create('timerTick', { periodInMinutes: 1/60 }); // Every second
 
 chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'autoSync') {
+    SupabaseAuth.isLoggedIn().then(loggedIn => {
+      if (loggedIn) {
+        SyncEngine.fullSync().then(result => {
+          log('Auto-sync result:', result.status);
+        }).catch(err => {
+          logError('Auto-sync error:', err.message);
+        });
+      }
+    });
+    return;
+  }
+
   if (alarm.name === 'timerTick') {
     if (timerState.isRunning && !timerState.isPaused) {
       // Recalculate current time based on elapsed time
@@ -311,7 +335,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           project: timerState.project,
           task: timerState.task,
           duration: elapsedMinutes,
-          sessionType: timerState.sessionType
+          sessionType: timerState.sessionType,
+          updated_at: new Date().toISOString()
         });
         chrome.storage.local.set({ appData: { ...data, timeLogs: logs } });
       });
@@ -374,6 +399,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     chrome.storage.local.remove(['timerState']);
     log('Timer reset');
     sendResponse({ success: true });
+  }
+  // ── Cloud Sync messages ──
+  else if (request.action === 'enableAutoSync') {
+    chrome.alarms.create('autoSync', { periodInMinutes: 10 });
+    chrome.storage.local.set({ autoSyncEnabled: true });
+    log('Auto-sync enabled');
+    sendResponse({ success: true });
+  }
+  else if (request.action === 'disableAutoSync') {
+    chrome.alarms.clear('autoSync');
+    chrome.storage.local.set({ autoSyncEnabled: false });
+    log('Auto-sync disabled');
+    sendResponse({ success: true });
+  }
+  else if (request.action === 'triggerSync') {
+    SyncEngine.fullSync().then(result => {
+      sendResponse(result);
+    }).catch(err => {
+      sendResponse({ status: 'error', message: err.message });
+    });
+    return true;
+  }
+  else if (request.action === 'getSyncStatus') {
+    SupabaseAuth.isLoggedIn().then(async (loggedIn) => {
+      const lastSync = await SyncEngine.getLastSyncTimestamp();
+      sendResponse({ loggedIn, lastSyncAt: lastSync, syncing: SyncEngine._syncing });
+    });
+    return true;
   }
 
   return true;

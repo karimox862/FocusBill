@@ -11,7 +11,7 @@ create extension if not exists "pgcrypto";
 -- ============================================================
 -- 1. USERS
 -- ============================================================
--- Extension users who opt into cloud sync or analytics.
+-- Extension users who opt into cloud sync.
 
 create table if not exists public.users (
   id          uuid primary key default gen_random_uuid(),
@@ -63,7 +63,273 @@ do $$ begin
 end $$;
 
 -- ============================================================
--- 2. EXTENSION EVENTS (telemetry / analytics)
+-- 2. CLIENTS
+-- ============================================================
+-- Mirrors appData.clients from chrome.storage.local
+
+create table if not exists public.clients (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null references public.users(id) on delete cascade,
+  local_id    bigint not null,
+  name        text not null,
+  rate        numeric(10,2) not null default 0,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  unique (user_id, local_id)
+);
+
+create index if not exists idx_clients_user on public.clients (user_id);
+
+drop trigger if exists trg_clients_updated_at on public.clients;
+create trigger trg_clients_updated_at
+  before update on public.clients
+  for each row execute function public.set_updated_at();
+
+alter table public.clients enable row level security;
+
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename='clients' and policyname='Users can CRUD own clients') then
+    create policy "Users can CRUD own clients" on public.clients for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+end $$;
+
+-- ============================================================
+-- 3. PROJECTS
+-- ============================================================
+-- Mirrors appData.projects from chrome.storage.local
+
+create table if not exists public.projects (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null references public.users(id) on delete cascade,
+  local_id    bigint not null,
+  name        text not null,
+  client_id   bigint,
+  type        text,
+  description text,
+  status      text not null default 'active',
+  deadline    text,
+  amount      numeric(12,2),
+  milestones  jsonb not null default '[]',
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  unique (user_id, local_id)
+);
+
+create index if not exists idx_projects_user      on public.projects (user_id);
+create index if not exists idx_projects_client    on public.projects (user_id, client_id);
+create index if not exists idx_projects_status    on public.projects (user_id, status);
+
+drop trigger if exists trg_projects_updated_at on public.projects;
+create trigger trg_projects_updated_at
+  before update on public.projects
+  for each row execute function public.set_updated_at();
+
+alter table public.projects enable row level security;
+
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename='projects' and policyname='Users can CRUD own projects') then
+    create policy "Users can CRUD own projects" on public.projects for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+end $$;
+
+-- ============================================================
+-- 4. TIME LOGS
+-- ============================================================
+-- Mirrors appData.timeLogs from chrome.storage.local
+
+create table if not exists public.time_logs (
+  id            bigint generated always as identity primary key,
+  user_id       uuid not null references public.users(id) on delete cascade,
+  local_id      bigint not null,
+  date          text not null,
+  client        text,
+  project       text,
+  task          text,
+  duration      integer not null default 0,
+  session_type  text,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  unique (user_id, local_id)
+);
+
+comment on column public.time_logs.duration is 'Duration in minutes';
+comment on column public.time_logs.date is 'ISO date string from the extension';
+
+create index if not exists idx_timelogs_user     on public.time_logs (user_id);
+create index if not exists idx_timelogs_date     on public.time_logs (user_id, date);
+create index if not exists idx_timelogs_client   on public.time_logs (user_id, client);
+
+alter table public.time_logs enable row level security;
+
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename='time_logs' and policyname='Users can CRUD own time logs') then
+    create policy "Users can CRUD own time logs" on public.time_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+end $$;
+
+-- ============================================================
+-- 5. INVOICES
+-- ============================================================
+-- Mirrors appData.invoices from chrome.storage.local
+
+create table if not exists public.invoices (
+  id            bigint generated always as identity primary key,
+  user_id       uuid not null references public.users(id) on delete cascade,
+  local_id      bigint not null,
+  number        text not null,
+  client_id     bigint,
+  type          text,
+  items         jsonb not null default '[]',
+  subtotal      numeric(12,2) not null default 0,
+  tax_rate      numeric(5,2) not null default 0,
+  tax_amount    numeric(12,2) not null default 0,
+  discount      numeric(12,2) not null default 0,
+  total         numeric(12,2) not null default 0,
+  notes         text,
+  due_date      text,
+  status        text not null default 'draft',
+  paid_at       text,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  unique (user_id, local_id)
+);
+
+comment on column public.invoices.items is 'JSON array of line items: [{description, hours, rate, amount}]';
+
+create index if not exists idx_invoices_user     on public.invoices (user_id);
+create index if not exists idx_invoices_client   on public.invoices (user_id, client_id);
+create index if not exists idx_invoices_status   on public.invoices (user_id, status);
+
+drop trigger if exists trg_invoices_updated_at on public.invoices;
+create trigger trg_invoices_updated_at
+  before update on public.invoices
+  for each row execute function public.set_updated_at();
+
+alter table public.invoices enable row level security;
+
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename='invoices' and policyname='Users can CRUD own invoices') then
+    create policy "Users can CRUD own invoices" on public.invoices for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+end $$;
+
+-- ============================================================
+-- 6. EXPENSES
+-- ============================================================
+-- Mirrors appData.expenses from chrome.storage.local
+
+create table if not exists public.expenses (
+  id              bigint generated always as identity primary key,
+  user_id         uuid not null references public.users(id) on delete cascade,
+  local_id        bigint not null,
+  description     text not null,
+  amount          numeric(12,2) not null default 0,
+  category        text,
+  date            text,
+  client          text,
+  receipt         text,
+  tax_deductible  boolean not null default false,
+  notes           text,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now(),
+  unique (user_id, local_id)
+);
+
+create index if not exists idx_expenses_user     on public.expenses (user_id);
+create index if not exists idx_expenses_category on public.expenses (user_id, category);
+create index if not exists idx_expenses_date     on public.expenses (user_id, date);
+
+drop trigger if exists trg_expenses_updated_at on public.expenses;
+create trigger trg_expenses_updated_at
+  before update on public.expenses
+  for each row execute function public.set_updated_at();
+
+alter table public.expenses enable row level security;
+
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename='expenses' and policyname='Users can CRUD own expenses') then
+    create policy "Users can CRUD own expenses" on public.expenses for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+end $$;
+
+-- ============================================================
+-- 7. NOTES
+-- ============================================================
+-- Mirrors appData.notes from chrome.storage.local
+
+create table if not exists public.notes (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null references public.users(id) on delete cascade,
+  local_id    bigint not null,
+  title       text,
+  content     text,
+  client      text,
+  project     text,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  unique (user_id, local_id)
+);
+
+create index if not exists idx_notes_user on public.notes (user_id);
+
+drop trigger if exists trg_notes_updated_at on public.notes;
+create trigger trg_notes_updated_at
+  before update on public.notes
+  for each row execute function public.set_updated_at();
+
+alter table public.notes enable row level security;
+
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename='notes' and policyname='Users can CRUD own notes') then
+    create policy "Users can CRUD own notes" on public.notes for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+end $$;
+
+-- ============================================================
+-- 8. USER SETTINGS
+-- ============================================================
+-- Mirrors appData.settings from chrome.storage.local
+-- One row per user.
+
+create table if not exists public.user_settings (
+  id               bigint generated always as identity primary key,
+  user_id          uuid not null unique references public.users(id) on delete cascade,
+  user_name        text,
+  user_email       text,
+  user_company     text,
+  company_address  text,
+  company_logo     text,
+  default_rate     numeric(10,2) not null default 75,
+  payment_terms    text,
+  tax_rate         numeric(5,2) not null default 0,
+  stripe_link      text,
+  paypal_link      text,
+  work_duration    integer not null default 25,
+  break_duration   integer not null default 5,
+  blocked_sites    jsonb not null default '[]',
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+
+comment on column public.user_settings.company_logo is 'Base64 data URI or URL';
+comment on column public.user_settings.work_duration is 'Default focus session in minutes';
+comment on column public.user_settings.blocked_sites is 'JSON array of domain strings';
+
+drop trigger if exists trg_user_settings_updated_at on public.user_settings;
+create trigger trg_user_settings_updated_at
+  before update on public.user_settings
+  for each row execute function public.set_updated_at();
+
+alter table public.user_settings enable row level security;
+
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename='user_settings' and policyname='Users can CRUD own settings') then
+    create policy "Users can CRUD own settings" on public.user_settings for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+end $$;
+
+-- ============================================================
+-- 9. EXTENSION EVENTS (telemetry / analytics)
 -- ============================================================
 -- High-volume table — every timer start, stop, feature use, etc.
 -- Consider partitioning by month if volume exceeds ~1M rows/month.
@@ -104,7 +370,7 @@ do $$ begin
 end $$;
 
 -- ============================================================
--- 3. BILLING EVENTS (subscriptions & payments)
+-- 10. BILLING EVENTS (subscriptions & payments)
 -- ============================================================
 -- Populated by webhook handlers (Stripe, Paddle, etc.)
 
@@ -148,7 +414,7 @@ do $$ begin
 end $$;
 
 -- ============================================================
--- 4. ERROR LOGS
+-- 11. ERROR LOGS
 -- ============================================================
 -- Client-side errors and exceptions reported by the extension.
 
@@ -188,7 +454,7 @@ do $$ begin
 end $$;
 
 -- ============================================================
--- 5. AUDIT LOG
+-- 12. AUDIT LOG
 -- ============================================================
 -- Immutable record of security-relevant actions.
 
@@ -207,7 +473,7 @@ create table if not exists public.audit_log (
 
 comment on column public.audit_log.action is
   'Action types: user.created, user.deleted, user.login, user.logout, '
-  'settings.changed, data.exported, data.deleted, '
+  'settings.changed, data.exported, data.deleted, data.synced, '
   'subscription.created, subscription.cancelled, admin.action';
 
 create index if not exists idx_audit_actor    on public.audit_log (actor_id);
@@ -230,7 +496,7 @@ do $$ begin
 end $$;
 
 -- ============================================================
--- 6. WAITLIST (upgrade existing table)
+-- 13. WAITLIST (upgrade existing table)
 -- ============================================================
 -- The waitlist table already exists in Supabase.
 -- These ALTER statements safely add the new columns.
@@ -316,6 +582,11 @@ $$ language plpgsql security definer;
 -- ============================================================
 -- 1. extension_events: Partition by created_at (monthly) if
 --    volume exceeds ~1M rows/month.
--- 2. Create materialized views for DAU, event counts, error rates.
--- 3. Consider a read replica for analytics queries.
--- 4. Use Supabase Edge Functions for Stripe webhook handlers.
+-- 2. time_logs: Partition by date if volume grows large.
+-- 3. Create materialized views for DAU, event counts, error rates.
+-- 4. Consider a read replica for analytics queries.
+-- 5. Use Supabase Edge Functions for Stripe webhook handlers.
+-- 6. App data tables (clients, projects, invoices, expenses,
+--    time_logs, notes, user_settings) use local_id + user_id
+--    unique constraints so the extension can upsert during sync
+--    without creating duplicates.

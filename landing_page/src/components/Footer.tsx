@@ -6,6 +6,7 @@ const links = [
     { label: "Features", href: "#solution" },
     { label: "How It Works", href: "#how-it-works" },
     { label: "Get FocusBill", href: "#install" },
+    { label: "Privacy Policy", href: "/privacy-policy" },
 ];
 
 export default function Footer() {

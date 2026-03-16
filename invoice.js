@@ -5,16 +5,11 @@
 const urlParams = new URLSearchParams(window.location.search);
 const invoiceData = JSON.parse(decodeURIComponent(urlParams.get('data') || '{}'));
 
-console.log('📄 Invoice data received:', invoiceData);
-
 // Populate invoice
 function populateInvoice() {
   if (!invoiceData || !invoiceData.client) {
-    console.error('❌ No invoice data or client found');
     return;
   }
-
-  console.log('✅ Starting invoice population...');
 
   // Determine data structure (old vs new)
   const invoice = invoiceData.invoice || invoiceData; // Support both old and new structure
@@ -33,11 +28,6 @@ function populateInvoice() {
     : 'your@email.com';
   const fromCompany = invoiceData.fromCompany || '';
 
-  console.log('From Name:', fromName);
-  console.log('From Email:', fromEmail);
-  console.log('From Company:', fromCompany);
-  console.log('From Address:', invoiceData.fromAddress);
-
   document.getElementById('from-name').textContent = fromCompany || fromName;
   let fromDetails = fromEmail;
   if (invoiceData.fromAddress && invoiceData.fromAddress.trim() !== '') {
@@ -51,9 +41,6 @@ function populateInvoice() {
     ? client.email
     : 'No email provided';
   document.getElementById('to-email').textContent = clientEmail;
-
-  console.log('Client Name:', client.name);
-  console.log('Client Email:', clientEmail);
 
   // Dates
   const invoiceDate = new Date(invoice.createdAt || invoiceData.invoiceDate);

@@ -82,7 +82,9 @@ function loadData() {
 }
 
 function saveData() {
-  chrome.storage.local.set({ appData });
+  chrome.storage.local.set({ appData }, () => {
+    chrome.runtime.sendMessage({ action: 'triggerSync' }).catch(() => {});
+  });
 }
 
 // ─── Background Sync ──────────────────────────────────
@@ -414,7 +416,7 @@ function saveClient() {
     return;
   }
 
-  const client = { id: Date.now(), name, rate };
+  const client = { id: Date.now(), name, rate, updated_at: new Date().toISOString() };
   appData.clients.push(client);
   saveData();
   updateClientsDropdown();
@@ -454,7 +456,8 @@ function saveNote() {
       id: Date.now(),
       content,
       date: new Date().toISOString(),
-      client: timerState.client || null
+      client: timerState.client || null,
+      updated_at: new Date().toISOString()
     });
     saveData();
     showToast('Note saved!', 'success', 2000);
@@ -509,4 +512,17 @@ function updateUI() {
     document.getElementById('timer-value').textContent = `${appData.settings.workDuration}:00`;
     updateTimerRing(timerState.sessionDuration);
   }
+
+  // Sync status dot
+  chrome.runtime.sendMessage({ action: 'getSyncStatus' }, (response) => {
+    if (chrome.runtime.lastError || !response) return;
+    const syncDot = document.getElementById('sync-status-dot');
+    if (syncDot) {
+      syncDot.style.display = response.loggedIn ? 'inline-block' : 'none';
+      syncDot.className = 'sync-dot ' + (response.syncing ? 'syncing' : 'synced');
+      syncDot.title = response.loggedIn
+        ? (response.lastSyncAt ? 'Synced: ' + new Date(response.lastSyncAt).toLocaleTimeString() : 'Not yet synced')
+        : '';
+    }
+  });
 }

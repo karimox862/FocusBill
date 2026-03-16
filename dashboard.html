@@ -127,6 +127,22 @@
           </div>
         </div>
 
+        <!-- Cloud Backup Banner (shown when not logged in) -->
+        <div class="sync-banner" id="sync-banner" style="display:none;">
+          <div class="sync-banner-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div class="sync-banner-text">
+            <strong>Your data is only stored locally.</strong>
+            If you uninstall, clear browser data, or switch devices you will lose everything.
+          </div>
+          <button class="btn btn-primary btn-sm" id="sync-banner-btn">Create Free Account</button>
+          <button class="sync-banner-close" id="sync-banner-close" title="Dismiss">&times;</button>
+        </div>
+
         <!-- Stats Cards -->
         <div class="stats-grid">
           <div class="stat-card" style="--card-accent: linear-gradient(90deg, #1D4ED8, #2B59E0);">
@@ -632,6 +648,85 @@
           </div>
         </div>
 
+        <!-- Account & Cloud Backup -->
+        <div class="card" id="cloud-sync-card">
+          <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:-3px;margin-right:6px;">
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+            Account
+          </h3>
+
+          <!-- Logged-out state -->
+          <div id="sync-auth-section">
+            <div class="sync-promo">
+              <div class="sync-promo-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#2B59E0" stroke-width="1.5" width="40" height="40">
+                  <path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/>
+                </svg>
+              </div>
+              <h4 class="sync-promo-title">Protect your work</h4>
+              <p class="sync-promo-desc">
+                Create a free account to back up your clients, invoices, time logs, and expenses. Sync across devices and never lose data.
+              </p>
+            </div>
+            <div class="sync-auth-form">
+              <input type="email" class="field-input" id="sync-email" placeholder="Email address" autocomplete="email">
+              <input type="password" class="field-input" id="sync-password" placeholder="Password (min 6 characters)" autocomplete="current-password">
+              <button class="btn btn-primary" id="sync-signup-btn" style="width:100%;">Create Free Account</button>
+              <div class="sync-auth-divider">
+                <span>Already have an account?</span>
+              </div>
+              <button class="btn btn-secondary" id="sync-signin-btn" style="width:100%;">Sign In</button>
+              <div id="sync-auth-error" class="sync-auth-error"></div>
+            </div>
+          </div>
+
+          <!-- Logged-in state -->
+          <div id="sync-status-section" style="display:none;">
+            <div class="sync-account-info">
+              <div class="sync-avatar" id="sync-avatar">U</div>
+              <div class="sync-account-details">
+                <div class="sync-account-email" id="sync-user-email">user@example.com</div>
+                <div class="sync-account-plan">Free Plan</div>
+              </div>
+              <button class="btn btn-secondary btn-sm" id="sync-signout-btn">Sign Out</button>
+            </div>
+            <div class="sync-status-row">
+              <div class="sync-status-left">
+                <span class="sync-dot synced" id="sync-dot-indicator"></span>
+                <span class="sync-status-text" id="sync-last-time">Never synced</span>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span id="sync-spinner" style="display:none;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2B59E0" stroke-width="2.5" style="animation:spin 1s linear infinite;">
+                    <path d="M21 12a9 9 0 11-6.219-8.56"/>
+                  </svg>
+                </span>
+                <button class="btn btn-primary btn-sm" id="sync-now-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="vertical-align:-2px;margin-right:4px;">
+                    <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                  </svg>
+                  Sync Now
+                </button>
+              </div>
+            </div>
+            <div class="settings-group" style="margin-top:12px;">
+              <div class="setting-item">
+                <div class="setting-info">
+                  <div class="setting-label">Auto-Sync</div>
+                  <div class="setting-description">Backs up every 10 minutes automatically</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="sync-auto-toggle" checked>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Data Management -->
         <div class="card">
           <h3 class="card-title">Data Management</h3>
@@ -963,6 +1058,8 @@
 
   <script src="theme.js"></script>
   <script src="expenses.js"></script>
+  <script src="supabase.js"></script>
+  <script src="sync.js"></script>
   <script src="dashboard.js" defer></script>
   <script>
     // Greeting bar: set time-aware greeting and today's date

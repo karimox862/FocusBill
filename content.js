@@ -54,4 +54,3 @@ function checkIfBlocked() {
   });
 }
 
-console.log('FocusBill content script loaded');

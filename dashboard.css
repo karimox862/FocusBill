@@ -1374,6 +1374,215 @@ body.dark .btn-secondary:hover { background: #2A3A58; }
 
 body.dark .today-badge { border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); }
 
+/* ── Cloud Sync / Account ──────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toggle switch */
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: #CBD5E1;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+.toggle-switch input:checked + .toggle-slider {
+  background: linear-gradient(135deg, #001A6E, #2B59E0);
+}
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+}
+
+/* ── Data loss warning banner ─────────────────────────────────── */
+.sync-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #FFF7ED, #FEF3C7);
+  border: 1px solid #FCD34D;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  animation: bannerSlideIn 0.4s ease;
+}
+@keyframes bannerSlideIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.sync-banner-icon { color: #D97706; flex-shrink: 0; }
+.sync-banner-text {
+  flex: 1;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #78350F;
+}
+.sync-banner-text strong { font-weight: 700; }
+.sync-banner-close {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  color: #92400E;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.sync-banner-close:hover { opacity: 1; }
+
+body.dark .sync-banner {
+  background: linear-gradient(135deg, #422006, #451a03);
+  border-color: #92400E;
+}
+body.dark .sync-banner-text { color: #FDE68A; }
+body.dark .sync-banner-close { color: #FDE68A; }
+
+/* ── Auth promo section ───────────────────────────────────────── */
+.sync-promo {
+  text-align: center;
+  padding: 20px 10px 8px;
+}
+.sync-promo-icon { margin-bottom: 10px; }
+.sync-promo-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0F172A;
+  margin-bottom: 6px;
+}
+.sync-promo-desc {
+  font-size: 0.8125rem;
+  color: #64748B;
+  line-height: 1.6;
+  max-width: 340px;
+  margin: 0 auto;
+}
+body.dark .sync-promo-title { color: #F1F5F9; }
+body.dark .sync-promo-desc { color: #94A3B8; }
+
+.sync-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 0 4px;
+}
+.sync-auth-divider {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #94A3B8;
+  margin: 4px 0;
+}
+.sync-auth-error {
+  display: none;
+  color: #DC2626;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 8px;
+  border-radius: 8px;
+  background: #FEF2F2;
+}
+body.dark .sync-auth-error { color: #FCA5A5; background: #450a0a; }
+
+/* ── Logged-in account info ───────────────────────────────────── */
+.sync-account-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0 16px;
+}
+.sync-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #001A6E, #2B59E0);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+.sync-account-details { flex: 1; min-width: 0; }
+.sync-account-email {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0F172A;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sync-account-plan {
+  font-size: 0.75rem;
+  color: #64748B;
+  margin-top: 1px;
+}
+body.dark .sync-account-email { color: #F1F5F9; }
+body.dark .sync-account-plan { color: #94A3B8; }
+
+.sync-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #F8FAFC;
+  border-radius: 10px;
+  border: 1px solid #E2E8F0;
+}
+body.dark .sync-status-row { background: #1E293B; border-color: #334155; }
+
+.sync-status-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.sync-status-text {
+  font-size: 0.8125rem;
+  color: #64748B;
+}
+body.dark .sync-status-text { color: #94A3B8; }
+
+.sync-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  display: inline-block; margin-right: 4px; flex-shrink: 0;
+}
+.sync-dot.synced { background: #10B981; }
+.sync-dot.syncing { background: #2B59E0; animation: pulse-sync 1.5s ease infinite; }
+.sync-dot.error { background: #DC2626; }
+
+@keyframes pulse-sync {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+body.dark .toggle-slider { background: #334155; }
+
 /* ── Responsive ─────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
   .charts-row { grid-template-columns: 1fr; }

@@ -65,7 +65,6 @@ function loadData() {
 
 function saveData() {
   chrome.storage.local.set({ appData }, () => {
-    console.log('Data saved successfully');
   });
 }
 
@@ -80,7 +79,6 @@ function saveTimerState() {
     project: timerState.project,
     task: timerState.task
   }}, () => {
-    console.log('Timer state saved');
   });
 }
 
@@ -193,10 +191,8 @@ function switchTab(tabName) {
   } else if (tabName === 'invoice') {
     updateInvoiceUI();
   } else if (tabName === 'expenses') {
-    console.log('💸 Switching to expenses tab...');
     updateExpensesUI();
   } else if (tabName === 'projects') {
-    console.log('📋 Switching to projects tab...');
     updateProjectsUI();
   }
 }
@@ -275,15 +271,12 @@ function startTimer() {
   // Update blocked sites if enabled
   const blockSites = document.getElementById('block-sites-toggle').checked;
   if (blockSites) {
-    console.log('🚫 Sending blocking request with sites:', appData.blockedSites);
     chrome.runtime.sendMessage({ 
       action: 'startBlocking',
       sites: appData.blockedSites 
     }, (response) => {
-      console.log('Blocking response:', response);
     });
   } else {
-    console.log('⚠️ Site blocking is disabled');
   }
 
   // Update UI
@@ -341,9 +334,6 @@ function stopTimer() {
     appData.timeLogs.push(log);
     saveData();
 
-    console.log('✅ Time log saved:', log);
-    console.log('📊 All time logs:', appData.timeLogs);
-    console.log('👥 All clients:', appData.clients);
   } else if (minutes === 0) {
     alert('Session was too short (less than 1 minute). Time not logged.');
   }
@@ -691,10 +681,6 @@ function generateInvoice() {
   const period = document.getElementById('invoice-period').value;
   const rate = parseFloat(document.getElementById('hourly-rate').value) || 0;
 
-  console.log('🧾 === INVOICE GENERATION DEBUG ===');
-  console.log('Selected Client ID:', clientId, '(type:', typeof clientId, ')');
-  console.log('Selected Period:', period);
-  console.log('Total logs in system:', appData.timeLogs.length);
 
   if (!clientId) {
     alert('Please select a client');
@@ -702,7 +688,6 @@ function generateInvoice() {
   }
 
   const client = appData.clients.find(c => String(c.id) === String(clientId));
-  console.log('Found client:', client);
 
   if (!client) {
     alert('Client not found');
@@ -710,7 +695,6 @@ function generateInvoice() {
   }
 
   // Debug: Show all log client IDs
-  console.log('All log client IDs:', appData.timeLogs.map(log => ({
     logId: log.id,
     clientId: log.client,
     clientIdType: typeof log.client
@@ -718,12 +702,8 @@ function generateInvoice() {
 
   // Filter logs by client with explicit string comparison
   const clientLogs = appData.timeLogs.filter(log => String(log.client) === String(clientId));
-  console.log('Client logs found after filter:', clientLogs.length);
-  console.log('Client logs:', clientLogs);
 
   const logs = filterLogsByPeriod(clientLogs, period);
-  console.log('Logs after period filter:', logs.length);
-  console.log('Final logs:', logs);
 
   if (logs.length === 0) {
     alert(`No time logs found for this client in the selected period.\n\n🔍 Debug Info:\nClient ID: ${clientId}\nPeriod: ${period}\nTotal logs in system: ${appData.timeLogs.length}\nLogs for this client: ${clientLogs.length}\n\nCheck browser console (F12) for detailed debug info.`);
@@ -879,12 +859,6 @@ function saveSettings() {
 }
 
 function testInvoiceData() {
-  console.log('🔍 === INVOICE DATA TEST ===');
-  console.log('Settings:', appData.settings);
-  console.log('User Name:', appData.settings.userName);
-  console.log('User Email:', appData.settings.userEmail);
-  console.log('Company Address:', appData.settings.companyAddress);
-  console.log('Payment Terms:', appData.settings.paymentTerms);
 
   const summary = `
 📊 Invoice Data Test Results:
@@ -1077,7 +1051,6 @@ function addExpense() {
 }
 
 function updateExpensesUI() {
-  console.log('💸 Updating expenses UI...');
 
   // Populate client dropdown for expenses
   const expenseClientSelect = document.getElementById('expense-client');
@@ -1261,7 +1234,6 @@ function createProject() {
 }
 
 function updateProjectsUI() {
-  console.log('📋 Updating projects UI...');
 
   // Populate client dropdown
   const projectClientSelect = document.getElementById('project-client');

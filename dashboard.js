@@ -25,8 +25,6 @@ let appData = {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('🚀 FocusBill Dashboard Initializing...');
-
   // Apply theme (light/dark) and mode (freelancer)
   const currentTheme = Theme.getCurrentTheme();
   const currentMode = Theme.getCurrentMode();
@@ -34,10 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
   Theme.apply(currentTheme);
   Theme.applyMode(currentMode);
   updateThemeToggleIcon(currentTheme);
-  console.log('✅ Theme applied:', currentTheme, currentMode);
 
   loadData();
   setupEventListeners();
+  initSyncUI();
 
   const container = document.getElementById('milestones-container');
   const addBtn = document.getElementById('add-milestone-btn');
@@ -65,7 +63,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btn) btn.closest('.milestone-item').remove();
   });
 
-  console.log('✅ Dashboard Ready!');
 });
 
 
@@ -93,8 +90,19 @@ function loadData() {
 // Save data
 function saveData() {
   chrome.storage.local.set({ appData }, () => {
-    console.log('✅ Dashboard data saved');
+    debouncedSync();
   });
+}
+
+// Debounced sync — waits 5s after last save before syncing
+let _syncTimeout = null;
+function debouncedSync() {
+  if (_syncTimeout) clearTimeout(_syncTimeout);
+  _syncTimeout = setTimeout(async () => {
+    if (typeof SupabaseAuth !== 'undefined' && await SupabaseAuth.isLoggedIn()) {
+      SyncEngine.fullSync().catch(() => {});
+    }
+  }, 5000);
 }
 
 // Toast notifications (replaces alert())
@@ -165,6 +173,13 @@ function setupEventListeners() {
   document.getElementById('export-all-data')?.addEventListener('click', exportAllData);
   document.getElementById('clear-all-data')?.addEventListener('click', clearAllData);
 
+  // Cloud Sync
+  document.getElementById('sync-signin-btn')?.addEventListener('click', handleSignIn);
+  document.getElementById('sync-signup-btn')?.addEventListener('click', handleSignUp);
+  document.getElementById('sync-signout-btn')?.addEventListener('click', handleSignOut);
+  document.getElementById('sync-now-btn')?.addEventListener('click', handleSyncNow);
+  document.getElementById('sync-auto-toggle')?.addEventListener('change', handleAutoSyncToggle);
+
   // Add note modal
   document.getElementById('save-note-btn')?.addEventListener('click', saveNote);
 
@@ -175,7 +190,6 @@ function setupEventListeners() {
   document.getElementById('expense-period-filter')?.addEventListener('change', updateExpensesPage);
   document.getElementById('expense-category-filter')?.addEventListener('change', updateExpensesPage);
 
-  console.log('✅ All event listeners set up');
 }
 
 // Page switching
@@ -469,7 +483,7 @@ function showAddClientModal() {
 
   // Otherwise, fall back to an inline form card at the top of the grid
   const grid = document.getElementById('clients-grid');
-  if (!grid) return console.warn('[FocusBill] #clients-grid not found');
+  if (!grid) return;
 
   // Avoid duplicates
   grid.querySelector('#add-client-card')?.remove();
@@ -525,13 +539,13 @@ function saveClient() {
 
   if (editId) {
     const client = appData.clients.find(c => c.id === editId);
-    if (client) { client.name = name; client.email = email || ''; client.rate = rate; }
+    if (client) { client.name = name; client.email = email || ''; client.rate = rate; client.updated_at = new Date().toISOString(); }
     delete saveBtn.dataset.editId;
     saveBtn.textContent = 'Save Client';
     const modal = document.getElementById('client-modal');
     if (modal) modal.querySelector('.modal-title').textContent = 'Add Client';
   } else {
-    const client = { id: Date.now(), name, email: email || '', rate };
+    const client = { id: Date.now(), name, email: email || '', rate, updated_at: new Date().toISOString() };
     appData.clients.push(client);
   }
 
@@ -553,7 +567,7 @@ window.deleteClient = function (clientId) {
   appData.clients = appData.clients.filter(c => c.id !== clientId);
   saveData();
   updateClientsPage();
-  console.log('✅ Client deleted');
+  if (typeof SyncEngine !== 'undefined') SyncEngine.cloudDelete('clients', clientId);
 };
 
 window.editClient = function (clientId) {
@@ -580,7 +594,6 @@ window.editClient = function (clientId) {
   document.getElementById('client-name-input')?.focus();
 };
 
-console.log('✅ window.deleteClient and window.editClient defined');
 
 // ============================================
 // PROJECTS PAGE
@@ -949,7 +962,8 @@ function saveProject() {
     description,
     status,
     deadline: deadline || null,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   };
 
   if (type === 'fixed') {
@@ -999,6 +1013,7 @@ window.deleteProject = function (projectId) {
   appData.projects = appData.projects.filter(p => p.id !== projectId);
   saveData();
   updateProjectsPage();
+  if (typeof SyncEngine !== 'undefined') SyncEngine.cloudDelete('projects', projectId);
 };
 
 // ============================================
@@ -1209,7 +1224,8 @@ function createInvoice() {
     dueDate: dueDate,
     status: status,
     createdAt: new Date().toISOString(),
-    paidAt: null
+    paidAt: null,
+    updated_at: new Date().toISOString()
   };
 
   appData.invoices = appData.invoices || [];
@@ -1259,6 +1275,7 @@ window.markInvoicePaid = function (invoiceId) {
   if (confirm(`Mark invoice ${invoice.number} as paid?`)) {
     invoice.status = 'paid';
     invoice.paidAt = new Date().toISOString();
+    invoice.updated_at = new Date().toISOString();
     saveData();
     renderInvoicesTable();
     dashboardToast('Invoice marked as paid!', 'success');
@@ -1273,6 +1290,7 @@ window.deleteInvoice = function (invoiceId) {
     appData.invoices = appData.invoices.filter(inv => inv.id !== invoiceId);
     saveData();
     renderInvoicesTable();
+    if (typeof SyncEngine !== 'undefined') SyncEngine.cloudDelete('invoices', invoiceId);
   }
 };
 
@@ -1284,7 +1302,6 @@ function checkOverdueInvoices() {
   );
 
   if (overdueInvoices.length > 0) {
-    console.log(`⚠️ ${overdueInvoices.length} overdue invoice(s) found`);
   }
 }
 
@@ -1343,7 +1360,8 @@ function saveNote() {
   appData.notes.push({
     id: Date.now(),
     content: content,
-    date: new Date().toISOString()
+    date: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   });
 
   saveData();
@@ -1361,10 +1379,9 @@ window.deleteNote = function (noteId) {
   appData.notes = appData.notes.filter(n => n.id !== noteId);
   saveData();
   updateNotesPage();
-  console.log('✅ Note deleted');
+  if (typeof SyncEngine !== 'undefined') SyncEngine.cloudDelete('notes', noteId);
 };
 
-console.log('✅ window.deleteNote defined');
 
 // ============================================
 // EXPENSES PAGE
@@ -1600,7 +1617,8 @@ function saveExpense() {
     date: new Date(date).toISOString(),
     client: clientId ? parseInt(clientId) : null,
     taxDeductible,
-    notes
+    notes,
+    updated_at: new Date().toISOString()
   };
 
   let newExpense;
@@ -1632,7 +1650,7 @@ window.deleteExpense = function (expenseId) {
   appData.expenses = appData.expenses.filter(e => e.id !== expenseId);
   saveData();
   updateExpensesPage();
-  console.log('✅ Expense deleted');
+  if (typeof SyncEngine !== 'undefined') SyncEngine.cloudDelete('expenses', expenseId);
 };
 
 function exportExpensesCSV() {
@@ -1659,7 +1677,6 @@ function exportExpensesCSV() {
   URL.revokeObjectURL(url);
 }
 
-console.log('✅ Expense management functions defined');
 
 // Settings Page
 function updateSettingsPage() {
@@ -1828,10 +1845,8 @@ window.deleteSession = function (sessionId) {
   saveData();
   updateSessionsPage();
   updateOverviewPage();
-  console.log('✅ Session deleted');
 };
 
-console.log('✅ window.deleteSession defined');
 
 
 
@@ -1842,7 +1857,6 @@ console.log('✅ window.deleteSession defined');
 function toggleTheme() {
   const newTheme = Theme.toggleTheme();
   updateThemeToggleIcon(newTheme);
-  console.log('🎨 Theme switched to:', newTheme);
 }
 
 function updateThemeToggleIcon(theme) {
@@ -1927,3 +1941,215 @@ document.addEventListener('click', (e) => {
     // no-op
   }
 });
+
+// ============================================
+// CLOUD SYNC
+// ============================================
+
+async function initSyncUI() {
+  if (typeof SupabaseAuth === 'undefined') return;
+  try {
+    const loggedIn = await SupabaseAuth.isLoggedIn();
+    if (loggedIn) {
+      const session = await SupabaseAuth.getSession();
+      showSyncLoggedIn(session.user.email);
+    } else {
+      showSyncLoggedOut();
+      showSyncBanner();
+    }
+  } catch (e) {
+    showSyncLoggedOut();
+    showSyncBanner();
+  }
+
+  // Banner dismiss
+  document.getElementById('sync-banner-close')?.addEventListener('click', () => {
+    const banner = document.getElementById('sync-banner');
+    if (banner) { banner.style.opacity = '0'; banner.style.transform = 'translateY(-10px)'; setTimeout(() => banner.style.display = 'none', 300); }
+    chrome.storage.local.set({ syncBannerDismissed: true });
+  });
+
+  // Banner CTA → jump to settings page account section
+  document.getElementById('sync-banner-btn')?.addEventListener('click', () => {
+    switchPage('settings');
+    setTimeout(() => document.getElementById('sync-email')?.focus(), 200);
+  });
+}
+
+function showSyncBanner() {
+  chrome.storage.local.get(['syncBannerDismissed'], (result) => {
+    if (result.syncBannerDismissed) return;
+    // Only show if user has some data
+    const hasData = appData.clients.length > 0 || appData.timeLogs.length > 0 || appData.invoices.length > 0;
+    if (!hasData) return;
+    const banner = document.getElementById('sync-banner');
+    if (banner) banner.style.display = 'flex';
+  });
+}
+
+function hideSyncBanner() {
+  const banner = document.getElementById('sync-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+function showSyncLoggedIn(email) {
+  const authSection = document.getElementById('sync-auth-section');
+  const statusSection = document.getElementById('sync-status-section');
+  if (authSection) authSection.style.display = 'none';
+  if (statusSection) statusSection.style.display = 'block';
+
+  // Set email
+  const emailEl = document.getElementById('sync-user-email');
+  if (emailEl) emailEl.textContent = email;
+
+  // Set avatar initial
+  const avatarEl = document.getElementById('sync-avatar');
+  if (avatarEl) avatarEl.textContent = (email || 'U').charAt(0).toUpperCase();
+
+  // Hide warning banner
+  hideSyncBanner();
+
+  // Load last sync time and auto-sync setting
+  chrome.storage.local.get(['lastSyncAt', 'autoSyncEnabled'], (result) => {
+    const el = document.getElementById('sync-last-time');
+    if (el) {
+      if (result.lastSyncAt) {
+        const d = new Date(result.lastSyncAt);
+        const now = new Date();
+        const diff = now - d;
+        let timeAgo;
+        if (diff < 60000) timeAgo = 'Just now';
+        else if (diff < 3600000) timeAgo = Math.floor(diff / 60000) + ' min ago';
+        else if (diff < 86400000) timeAgo = Math.floor(diff / 3600000) + 'h ago';
+        else timeAgo = d.toLocaleDateString();
+        el.textContent = 'Synced ' + timeAgo;
+      } else {
+        el.textContent = 'Never synced';
+      }
+    }
+    const toggle = document.getElementById('sync-auto-toggle');
+    if (toggle) toggle.checked = result.autoSyncEnabled !== false;
+  });
+}
+
+function showSyncLoggedOut() {
+  const authSection = document.getElementById('sync-auth-section');
+  const statusSection = document.getElementById('sync-status-section');
+  if (authSection) authSection.style.display = 'block';
+  if (statusSection) statusSection.style.display = 'none';
+}
+
+function showAuthError(msg) {
+  const errorEl = document.getElementById('sync-auth-error');
+  if (errorEl) {
+    errorEl.textContent = msg;
+    errorEl.style.display = 'block';
+  }
+}
+
+function clearAuthError() {
+  const errorEl = document.getElementById('sync-auth-error');
+  if (errorEl) errorEl.style.display = 'none';
+}
+
+function setAuthLoading(loading) {
+  const signinBtn = document.getElementById('sync-signin-btn');
+  const signupBtn = document.getElementById('sync-signup-btn');
+  if (signinBtn) { signinBtn.disabled = loading; }
+  if (signupBtn) { signupBtn.disabled = loading; signupBtn.textContent = loading ? 'Creating account...' : 'Create Free Account'; }
+}
+
+async function handleSignIn() {
+  const email = document.getElementById('sync-email')?.value.trim();
+  const password = document.getElementById('sync-password')?.value;
+  clearAuthError();
+
+  if (!email || !password) { showAuthError('Please enter both email and password.'); return; }
+
+  setAuthLoading(true);
+  try {
+    await SupabaseAuth.signIn(email, password);
+    showSyncLoggedIn(email);
+    dashboardToast('Welcome back! Syncing your data...', 'success');
+    handleSyncNow();
+    chrome.runtime.sendMessage({ action: 'enableAutoSync' });
+  } catch (err) {
+    showAuthError(err.message);
+  } finally {
+    setAuthLoading(false);
+  }
+}
+
+async function handleSignUp() {
+  const email = document.getElementById('sync-email')?.value.trim();
+  const password = document.getElementById('sync-password')?.value;
+  clearAuthError();
+
+  if (!email || !password) { showAuthError('Please enter both email and password.'); return; }
+  if (password.length < 6) { showAuthError('Password must be at least 6 characters.'); return; }
+
+  setAuthLoading(true);
+  try {
+    const data = await SupabaseAuth.signUp(email, password);
+    if (data.access_token) {
+      showSyncLoggedIn(email);
+      dashboardToast('Account created! Backing up all your data...', 'success');
+      handleSyncNow();
+      chrome.runtime.sendMessage({ action: 'enableAutoSync' });
+    } else {
+      dashboardToast('Check your email to confirm your account, then sign in.', 'info');
+    }
+  } catch (err) {
+    showAuthError(err.message);
+  } finally {
+    setAuthLoading(false);
+  }
+}
+
+async function handleSignOut() {
+  if (!confirm('Sign out? Your data stays on this device, but it won\'t be backed up until you sign in again.')) return;
+  await SupabaseAuth.signOut();
+  showSyncLoggedOut();
+  showSyncBanner();
+  chrome.runtime.sendMessage({ action: 'disableAutoSync' });
+  // Reset dismissed state so banner shows again
+  chrome.storage.local.set({ syncBannerDismissed: false });
+  dashboardToast('Signed out. Your local data is still here.', 'info');
+}
+
+async function handleSyncNow() {
+  const spinner = document.getElementById('sync-spinner');
+  const btn = document.getElementById('sync-now-btn');
+  const dotEl = document.getElementById('sync-dot-indicator');
+  if (spinner) spinner.style.display = 'inline';
+  if (btn) btn.disabled = true;
+  if (dotEl) dotEl.className = 'sync-dot syncing';
+
+  try {
+    const result = await SyncEngine.fullSync();
+    if (result.status === 'success') {
+      dashboardToast('All data backed up!', 'success');
+      if (dotEl) dotEl.className = 'sync-dot synced';
+      const timeEl = document.getElementById('sync-last-time');
+      if (timeEl) timeEl.textContent = 'Synced just now';
+      loadData();
+    } else if (result.status === 'not_logged_in') {
+      dashboardToast('Please sign in first.', 'warning');
+    } else {
+      dashboardToast('Sync failed: ' + (result.message || 'Unknown error'), 'error');
+      if (dotEl) dotEl.className = 'sync-dot error';
+    }
+  } catch (err) {
+    dashboardToast('Sync error: ' + err.message, 'error');
+    if (dotEl) dotEl.className = 'sync-dot error';
+  } finally {
+    if (spinner) spinner.style.display = 'none';
+    if (btn) btn.disabled = false;
+  }
+}
+
+function handleAutoSyncToggle() {
+  const enabled = document.getElementById('sync-auto-toggle')?.checked;
+  chrome.runtime.sendMessage({ action: enabled ? 'enableAutoSync' : 'disableAutoSync' });
+  chrome.storage.local.set({ autoSyncEnabled: enabled });
+}

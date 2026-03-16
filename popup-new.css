@@ -97,6 +97,16 @@
   background: #F59E0B;
 }
 
+/* ─── Sync Status Dot ────────────────────────────── */
+.sync-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.sync-dot.synced { background: #10B981; }
+.sync-dot.syncing { background: #2B59E0; animation: pulse 1.5s ease-in-out infinite; }
+.sync-dot.error { background: #DC2626; }
+
 /* ─── Timer Section ──────────────────────────────── */
 .timer-section {
   padding: var(--spacing-5) var(--spacing-5) var(--spacing-4);
