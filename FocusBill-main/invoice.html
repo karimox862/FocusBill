@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice - FocusBill</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #F2F2F2 0%, #e8e8e8 100%);
+      padding: 40px 20px;
+      min-height: 100vh;
+    }
+
+    .invoice-container {
+      max-width: 850px;
+      margin: 0 auto;
+      background: white;
+      box-shadow: 0 20px 60px rgba(36, 132, 191, 0.15);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .invoice-header {
+      background: linear-gradient(135deg, #2484BF 0%, #052940 100%);
+      color: white;
+      padding: 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .invoice-header::before {
+      content: '';
+      position: absolute;
+      top: -50px;
+      right: -50px;
+      width: 200px;
+      height: 200px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+    }
+
+    .invoice-header::after {
+      content: '';
+      position: absolute;
+      bottom: -80px;
+      left: -80px;
+      width: 250px;
+      height: 250px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 50%;
+    }
+
+    .invoice-header h1 {
+      font-size: 36px;
+      font-weight: 300;
+      letter-spacing: 2px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .invoice-number {
+      text-align: right;
+      position: relative;
+      z-index: 1;
+    }
+
+    .invoice-number .label {
+      font-size: 12px;
+      opacity: 0.9;
+      margin-bottom: 5px;
+    }
+
+    .invoice-number .value {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .invoice-body {
+      padding: 40px;
+    }
+
+    .parties {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 40px;
+    }
+
+    .party h3 {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: #2484BF;
+      margin-bottom: 10px;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    .party-info {
+      color: #333;
+      line-height: 1.8;
+    }
+
+    .party-name {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 5px;
+      color: #111;
+    }
+
+    .party-details {
+      font-size: 14px;
+      color: #666;
+      white-space: pre-line;
+    }
+
+    .invoice-meta {
+      display: flex;
+      gap: 30px;
+      margin-bottom: 40px;
+      padding: 20px;
+      background: linear-gradient(135deg, #F2F2F2 0%, #e8e8e8 100%);
+      border-radius: 8px;
+      border-left: 4px solid #2484BF;
+    }
+
+    .meta-item {
+      flex: 1;
+    }
+
+    .meta-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 5px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .meta-value {
+      font-size: 15px;
+      color: #333;
+      font-weight: 500;
+    }
+
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+    }
+
+    .items-table thead {
+      background: #f8f9fa;
+    }
+
+    .items-table th {
+      text-align: left;
+      padding: 15px;
+      font-size: 12px;
+      text-transform: uppercase;
+      color: #052940;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid #2484BF;
+    }
+
+    .items-table th:last-child,
+    .items-table td:last-child {
+      text-align: right;
+    }
+
+    .items-table tbody tr {
+      border-bottom: 1px solid #e9ecef;
+    }
+
+    .items-table tbody tr:hover {
+      background: linear-gradient(135deg, #F2F2F2 0%, #e8e8e8 100%);
+      transform: scale(1.005);
+      transition: all 0.2s ease;
+    }
+
+    .items-table td {
+      padding: 15px;
+      color: #333;
+      font-size: 14px;
+    }
+
+    .item-date {
+      color: #666;
+      font-size: 13px;
+    }
+
+    .item-description {
+      color: #333;
+      font-weight: 500;
+      margin-bottom: 3px;
+    }
+
+    .item-hours {
+      color: #2484BF;
+      font-weight: 600;
+    }
+
+    .item-amount {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .totals {
+      margin-left: auto;
+      width: 350px;
+      border-top: 2px solid #e9ecef;
+      padding-top: 20px;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      font-size: 15px;
+    }
+
+    .total-row.subtotal {
+      color: #666;
+    }
+
+    .total-row.total {
+      font-size: 24px;
+      font-weight: bold;
+      color: #2484BF;
+      border-top: 2px solid #2484BF;
+      padding-top: 15px;
+      margin-top: 10px;
+    }
+
+    .invoice-footer {
+      background: #f8f9fa;
+      padding: 30px 40px;
+      border-top: 1px solid #e9ecef;
+    }
+
+    .payment-info h4 {
+      font-size: 14px;
+      text-transform: uppercase;
+      color: #2484BF;
+      margin-bottom: 15px;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    .payment-terms {
+      color: #666;
+      font-size: 14px;
+      line-height: 1.8;
+      margin-bottom: 20px;
+    }
+
+    .thank-you {
+      text-align: center;
+      padding: 20px;
+      color: #999;
+      font-size: 13px;
+      font-style: italic;
+    }
+
+    .action-buttons {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      gap: 10px;
+      z-index: 1000;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: #2484BF;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #052940;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(36, 132, 191, 0.4);
+    }
+
+    .btn-secondary {
+      background: white;
+      color: #2484BF;
+      border: 2px solid #2484BF;
+    }
+
+    .btn-secondary:hover {
+      background: #2484BF;
+      color: white;
+    }
+
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+
+      .invoice-container {
+        box-shadow: none;
+        border-radius: 0;
+      }
+
+      .action-buttons {
+        display: none;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .invoice-header {
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .parties {
+        grid-template-columns: 1fr;
+        gap: 30px;
+      }
+
+      .action-buttons {
+        position: static;
+        justify-content: center;
+        margin-bottom: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="action-buttons">
+    <button class="btn btn-primary" onclick="downloadPDF()">
+      <span>📥</span> Download PDF
+    </button>
+    <button class="btn btn-secondary" onclick="window.print()">
+      <span>🖨️</span> Print
+    </button>
+  </div>
+
+  <div class="invoice-container" id="invoice">
+    <div class="invoice-header">
+      <div>
+        <h1>INVOICE</h1>
+      </div>
+      <div class="invoice-number">
+        <div class="label">Invoice Number</div>
+        <div class="value" id="invoice-num">#INV-001</div>
+      </div>
+    </div>
+
+    <div class="invoice-body">
+      <!-- Parties -->
+      <div class="parties">
+        <div class="party">
+          <h3>From</h3>
+          <div class="party-info">
+            <div class="party-name" id="from-name">Your Business</div>
+            <div class="party-details" id="from-email">your@email.com</div>
+          </div>
+        </div>
+        <div class="party">
+          <h3>Bill To</h3>
+          <div class="party-info">
+            <div class="party-name" id="to-name">Client Name</div>
+            <div class="party-details" id="to-email">client@email.com</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Invoice Meta -->
+      <div class="invoice-meta">
+        <div class="meta-item">
+          <div class="meta-label">Invoice Date</div>
+          <div class="meta-value" id="invoice-date">Jan 1, 2025</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Due Date</div>
+          <div class="meta-value" id="due-date">Jan 31, 2025</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Period</div>
+          <div class="meta-value" id="period">This Month</div>
+        </div>
+      </div>
+
+      <!-- Items Table -->
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Hours</th>
+            <th>Rate</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody id="items-body">
+          <!-- Items will be inserted here -->
+        </tbody>
+      </table>
+
+      <!-- Totals -->
+      <div class="totals">
+        <div class="total-row subtotal">
+          <span>Subtotal</span>
+          <span id="subtotal">$0.00</span>
+        </div>
+        <div class="total-row total">
+          <span>Total Due</span>
+          <span id="total">$0.00</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="invoice-footer">
+      <div class="payment-info">
+        <h4>Payment Terms</h4>
+        <div class="payment-terms" id="payment-terms-text">
+          Payment is due within 30 days of invoice date. Please include the invoice number with your payment.
+          <br><br>
+          <strong>Thank you for your business!</strong>
+        </div>
+
+        <!-- Payment Methods -->
+        <div class="payment-methods" id="payment-methods" style="margin-top: 30px; display: none;">
+          <h4 style="margin-bottom: 15px;">💳 Payment Methods</h4>
+          <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <a href="#" id="stripe-payment-link" class="payment-link" style="display: none; padding: 12px 24px; background: #635BFF; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; transition: all 0.3s;" target="_blank" rel="noopener">
+              Pay with Card (Stripe)
+            </a>
+            <a href="#" id="paypal-payment-link" class="payment-link" style="display: none; padding: 12px 24px; background: #0070BA; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; transition: all 0.3s;" target="_blank" rel="noopener">
+              Pay with PayPal
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="thank-you">
+        Generated with FocusBill • Focus. Track. Bill.
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF library removed due to CSP - use Print instead -->
+  <script src="invoice.js"></script>
+</body>
+</html>
